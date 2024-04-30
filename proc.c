@@ -319,8 +319,7 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
-void
-scheduler(void)
+void scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
@@ -329,29 +328,49 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
+  
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+    int found = 0;  
+    
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+      if(p->state != RUNNABLE || p->type != INTERACTIVE)
         continue;
-
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
+  
+      // Switch to chosen process. It is the process's job to release ptable.lock and then reacquire it
       // before jumping back to us.
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
-
       swtch(&(c->scheduler), p->context);
-      switchkvm();
+      switchkvm(); 
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
+      found = 1; // Mark that we found an interactive process
+      break; 
+    }
+    if (!found) {
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->state != RUNNABLE || p->type != BATCH)
+          continue;
+
+        // Switch to chosen process. It is the process's job to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+        break;
+      }
     }
     release(&ptable.lock);
-
   }
 }
 
@@ -531,4 +550,19 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+void 
+setproctype(int pid, enum proctype type)
+{
+    struct proc *p;
+
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->pid == pid){
+            p->type = type;
+            break;
+        }
+    }
+    release(&ptable.lock);
 }

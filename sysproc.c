@@ -89,3 +89,15 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// This below makes sure the user program calls the syscall with valid args
+int
+sys_setproctype(void)
+{
+  int pid;
+  enum proctype type;
+  if(argint(0, &pid) < 0 || argint(1, (int *)&type) < 0)
+    return -1;
+  setproctype(pid, type);
+  return 0;
+}
