@@ -24,6 +24,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 void setproctype(int pid, enum proctype type);
+void setnice(int pid, int nice);
 
 
 // ulib.c

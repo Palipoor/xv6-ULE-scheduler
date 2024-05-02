@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -19,6 +20,14 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+void re_prioritize(struct proc *p) {
+  return 0;
+}
+void set_runnable(struct proc *p) {
+  p->state = RUNNABLE;
+  re_prioritize(p);
+}
 
 void
 pinit(void)
@@ -88,9 +97,14 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-
+  p->type = BATCH; // just using this as the default for now
+  p->timer = 0;
   release(&ptable.lock);
 
+  p -> sleep_time = (time_buffer *)kalloc();
+  p -> run_time = (time_buffer *)kalloc();
+  init_time_buffer(p->sleep_time);
+  init_time_buffer(p->run_time);
   // Allocate kernel stack.
   if((p->kstack = kalloc()) == 0){
     p->state = UNUSED;
@@ -148,7 +162,7 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
-  p->state = RUNNABLE;
+  set_runnable(p);
 
   release(&ptable.lock);
 }
@@ -214,7 +228,7 @@ fork(void)
 
   acquire(&ptable.lock);
 
-  np->state = RUNNABLE;
+  set_runnable(np);
 
   release(&ptable.lock);
 
@@ -324,7 +338,7 @@ void scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+  int x = sys_uptime();
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -342,11 +356,13 @@ void scheduler(void)
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
+      p->timer = sys_uptime();
       swtch(&(c->scheduler), p->context);
       switchkvm(); 
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
+      add_record(p->run_time, sys_uptime() - p->timer);
       c->proc = 0;
       found = 1; // Mark that we found an interactive process
       break; 
@@ -361,11 +377,13 @@ void scheduler(void)
         c->proc = p;
         switchuvm(p);
         p->state = RUNNING;
+        p->timer = sys_uptime();
         swtch(&(c->scheduler), p->context);
         switchkvm();
-
+        add_record(p->run_time, sys_uptime() - p->timer);
         // Process is done running for now.
         // It should have changed its p->state before coming back.
+        
         c->proc = 0;
         break;
       }
@@ -405,7 +423,7 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-  myproc()->state = RUNNABLE;
+  set_runnable(myproc());
   sched();
   release(&ptable.lock);
 }
@@ -437,7 +455,7 @@ void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
-  
+  p->timer = sys_uptime();
   if(p == 0)
     panic("sleep");
 
@@ -462,7 +480,6 @@ sleep(void *chan, struct spinlock *lk)
 
   // Tidy up.
   p->chan = 0;
-
   // Reacquire original lock.
   if(lk != &ptable.lock){  //DOC: sleeplock2
     release(&ptable.lock);
@@ -480,7 +497,8 @@ wakeup1(void *chan)
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan)
-      p->state = RUNNABLE;
+      set_runnable(p);
+      add_record(p->sleep_time, sys_uptime() - p->timer);
 }
 
 // Wake up all processes sleeping on chan.
@@ -565,4 +583,50 @@ setproctype(int pid, enum proctype type)
         }
     }
     release(&ptable.lock);
+}
+
+void 
+setnice(int pid, int nice)
+{
+    struct proc *p;
+
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->pid == pid){
+            p->niceness = nice;
+            break;
+        }
+    }
+    release(&ptable.lock);
+}
+
+void init_time_buffer(time_buffer *buffer) {
+    buffer->size = 0;
+    buffer->head = 0;
+    buffer->tail = 0;
+}
+
+void add_record(time_buffer *buffer, int duration) {
+
+    int curr_time = sys_uptime();
+    if (buffer->size == BUFFER_SIZE){
+      curr_time ++;
+        buffer->head = (buffer->head + 1) % BUFFER_SIZE;}
+     else {
+        buffer->size++;
+    }
+
+    buffer->update_times[buffer->tail] = curr_time;
+    buffer->durations[buffer->tail] = duration;
+    buffer->tail = (buffer->tail + 1) % BUFFER_SIZE;
+}
+
+int get_total_duration(time_buffer *buffer) {
+    int total_duration = 0;
+    int cur_time = sys_uptime();
+    for (int i = 0; i < buffer->size; i++) {
+        if (cur_time - buffer->update_times[i] <= RECORD_INTERVAL) 
+            total_duration += buffer->durations[i];    
+    }
+    return total_duration;
 }

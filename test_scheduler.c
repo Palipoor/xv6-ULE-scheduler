@@ -13,13 +13,13 @@ int main() {
     int pid, n;
     enum proctype t;
 
-    n = 5;
+    n = 8;
 
     printf(1, "Starting scheduler test one...\n");
     printf(1, "Creating %d processes\n", n);
 
     for (int i = 0; i < n; i++) {
-        t = (i < 5) ? BATCH : INTERACTIVE;
+        t = (i < 4) ? BATCH : INTERACTIVE;
         char *type = (t == INTERACTIVE) ? "INTERACTIVE" : "BATCH";
         pid = fork();
         setproctype(getpid(), t);  

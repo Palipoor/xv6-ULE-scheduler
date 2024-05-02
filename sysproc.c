@@ -90,7 +90,6 @@ sys_uptime(void)
   return xticks;
 }
 
-// This below makes sure the user program calls the syscall with valid args
 int
 sys_setproctype(void)
 {
@@ -99,5 +98,17 @@ sys_setproctype(void)
   if(argint(0, &pid) < 0 || argint(1, (int *)&type) < 0)
     return -1;
   setproctype(pid, type);
+  return 0;
+}
+
+int sys_setnice(void)
+{
+  int pid;
+  int nice;
+  if(argint(0, &pid) < 0 || argint(1, &nice) < 0)
+    return -1;
+  if (argint(1, &nice) > 20)
+    return -1;
+  setnice(pid, nice);
   return 0;
 }

@@ -53,8 +53,25 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   enum proctype type;
+  int niceness; // it should be between 0 and 20 - 20 means very nice 
+  struct time_buffer *sleep_time;
+  struct time_buffer *run_time;
+  int timer;
 };
 
+#define RECORD_INTERVAL 1000
+#define BUFFER_SIZE 10
+
+typedef
+struct time_buffer{
+int update_times[BUFFER_SIZE];
+int durations[BUFFER_SIZE];
+int head, tail, size;
+}time_buffer;
+
+void init_time_buffer(time_buffer *buffer);
+void add_record(time_buffer *buffer, int duration);
+int get_total_duration(time_buffer *buffer);
 
 // Process memory is laid out contiguously, low addresses first:
 //   text
@@ -62,3 +79,4 @@ struct proc {
 //   fixed-size stack
 //   expandable heap
 void setproctype(int pid, enum proctype type);
+void setnice(int pid, int nice);

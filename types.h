@@ -3,4 +3,4 @@ typedef unsigned short ushort;
 typedef unsigned char  uchar;
 typedef uint pde_t;
 
-enum proctype {INTERACTIVE, BATCH}; // process type for scheduling
+enum proctype {INTERACTIVE, BATCH, IDLE}; // process type for scheduling
