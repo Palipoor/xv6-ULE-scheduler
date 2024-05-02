@@ -22,7 +22,17 @@ extern void trapret(void);
 static void wakeup1(void *chan);
 
 void re_prioritize(struct proc *p) {
-  return 0;
+  float score = 0;
+  int runtime = get_total_duration(p->run_time);
+  int sleeptime = get_total_duration(p->sleep_time);
+  if (runtime + sleeptime == 0) 
+    return;
+  score = (float)sleeptime / (runtime + sleeptime);
+  if (score > 0.5) 
+    p->type = INTERACTIVE;
+  else 
+    p->type = BATCH;
+  
 }
 void set_runnable(struct proc *p) {
   p->state = RUNNABLE;
@@ -346,46 +356,43 @@ void scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     int found = 0;  
-    
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE || p->type != INTERACTIVE)
         continue;
-  
-      // Switch to chosen process. It is the process's job to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      p->timer = sys_uptime();
-      swtch(&(c->scheduler), p->context);
-      switchkvm(); 
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      add_record(p->run_time, sys_uptime() - p->timer);
-      c->proc = 0;
-      found = 1; // Mark that we found an interactive process
-      break; 
-    }
-    if (!found) {
-      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->state != RUNNABLE || p->type != BATCH)
-          continue;
-
-        // Switch to chosen process. It is the process's job to release ptable.lock and then reacquire it
-        // before jumping back to us.
+      else{
         c->proc = p;
         switchuvm(p);
         p->state = RUNNING;
         p->timer = sys_uptime();
         swtch(&(c->scheduler), p->context);
-        switchkvm();
-        add_record(p->run_time, sys_uptime() - p->timer);
+        switchkvm(); 
+
         // Process is done running for now.
         // It should have changed its p->state before coming back.
-        
+        add_record(p->run_time, sys_uptime() - p->timer);
         c->proc = 0;
+        found = 1; // Mark that we found an interactive process
         break;
+      }
+    }
+    if (!found) {
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->state != RUNNABLE || p->type != BATCH)
+          continue;
+        else{
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+          p->timer = sys_uptime();
+          swtch(&(c->scheduler), p->context);
+          switchkvm();
+          add_record(p->run_time, sys_uptime() - p->timer);
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          
+          c->proc = 0;
+          break;
+        }
       }
     }
     release(&ptable.lock);
@@ -496,9 +503,10 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
       set_runnable(p);
       add_record(p->sleep_time, sys_uptime() - p->timer);
+    }
 }
 
 // Wake up all processes sleeping on chan.
