@@ -8,37 +8,68 @@
 #include "traps.h"
 #include "memlayout.h"
 
+void cpu_bound() {
+    int fib1 = 1;
+    int fib2 = 1;
+    for (int i = 0; i < 10000000; i++) {
+        fib1 = fib1 + fib2;
+        fib2 = fib1 + fib2;
+    }
+}
+
+void io_bound() {
+    int p[2];
+    if (pipe(p) == -1) {
+        printf(1, "pipe failed\n");
+        exit();
+    }
+    int pid = fork();
+    if(pid == 0) {
+        close(p[0]);
+        for (int i = 0; i < 128; i++){
+        write(p[1], "ABCD", 4);
+        for (int j = 0; j < 10000000; j++) 
+            asm("nop");
+        }
+        close(p[1]);
+     } else {
+        close(p[1]);
+        char buf[512];
+        int n;
+        n = read(p[0], buf, sizeof buf);
+        while (n > 0) {
+            n = read(p[0], buf, sizeof buf);
+        }
+        close(p[0]);
+        wait(); 
+}
+}
 int main() {
 
-    int pid, n;
-    enum proctype t;
-
-    n = 8;
-
-    printf(1, "Starting scheduler test one...\n");
-    printf(1, "Creating %d processes\n", n);
-
-    for (int i = 0; i < n; i++) {
-        t = (i < 4) ? BATCH : INTERACTIVE;
-        char *type = (t == INTERACTIVE) ? "INTERACTIVE" : "BATCH";
-        pid = fork();
-        setproctype(getpid(), t);  
-        if (pid == 0) { 
-            printf(1, "\nProcess %d of type %s started\n", getpid(), type);
-
-            for (int j = 0; j < 10000000; j++) {
-                asm("nop"); 
+    printf(1, "Scheduler test starting...\n");
+    int pid = fork();
+    if (pid == 0){
+        printf(1, "Creating %d cpu bound processes\n", 3);
+        for (int i = 0; i < 3; i++) {
+            int pid = fork();
+            if (pid == 0) {
+                cpu_bound();
+                exit();
+            }else
+                wait();
+        }
+        printf(1, "Creating %d io bound processes in total\n", 4);
+        for (int i = 0; i < 2; i++) {
+            int pid = fork();
+            if (pid == 0) {
+                io_bound();
+                exit();
             }
-
-            printf(1, "\nProcess %d of type %s finished\n", getpid(), type);
-            exit();
+            else
+                wait();
         }
     }
-
-    for (int i = 0; i < n; i++) { // wait for children
-        wait();
-    }
-
+    wait();
     printf(1, "Scheduler test completed.\n");
 
     exit();
