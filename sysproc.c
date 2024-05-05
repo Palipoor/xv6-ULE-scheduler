@@ -56,7 +56,6 @@ sys_sbrk(void)
   return addr;
 }
 
-int
 sys_sleep(void)
 {
   int n;
@@ -98,17 +97,5 @@ sys_setproctype(void)
   if(argint(0, &pid) < 0 || argint(1, (int *)&type) < 0)
     return -1;
   setproctype(pid, type);
-  return 0;
-}
-
-int sys_setnice(void)
-{
-  int pid;
-  int nice;
-  if(argint(0, &pid) < 0 || argint(1, &nice) < 0)
-    return -1;
-  if (argint(1, &nice) > 20)
-    return -1;
-  setnice(pid, nice);
   return 0;
 }

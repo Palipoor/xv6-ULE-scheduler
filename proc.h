@@ -53,10 +53,13 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   enum proctype type;
-  int niceness; // it should be between 0 and 20 - 20 means very nice 
-  struct time_buffer *sleep_time;
-  struct time_buffer *run_time;
+  struct time_buffer *sleep_time; //[for scheduling] to calculate total recent sleep time
+  struct time_buffer *run_time; // [for scheduling] to calculate total recent run time
   int timer;
+  int total_run_time;  // [for testing] This is total run time from the start of the process
+  int total_sleep_time; // [for testing] This is total sleep time from the start of the process
+  int start;
+  int end;
 };
 
 #define RECORD_INTERVAL 1000
@@ -79,4 +82,3 @@ int get_total_duration(time_buffer *buffer);
 //   fixed-size stack
 //   expandable heap
 void setproctype(int pid, enum proctype type);
-void setnice(int pid, int nice);

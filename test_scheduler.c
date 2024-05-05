@@ -1,75 +1,84 @@
-#include "param.h"
 #include "types.h"
-#include "stat.h"
 #include "user.h"
-#include "fs.h"
-#include "fcntl.h"
-#include "syscall.h"
-#include "traps.h"
-#include "memlayout.h"
 
-void cpu_bound() {
+void cpu_bound()
+{
     int fib1 = 1;
     int fib2 = 1;
-    for (int i = 0; i < 10000000; i++) {
+    for (int i = 0; i < 100000000; i++)
+    {
         fib1 = fib1 + fib2;
         fib2 = fib1 + fib2;
     }
 }
 
-void io_bound() {
+void io_bound()
+{
     int p[2];
-    if (pipe(p) == -1) {
+    if (pipe(p) == -1)
+    {
         printf(1, "pipe failed\n");
         exit();
     }
     int pid = fork();
-    if(pid == 0) {
+    if (pid == 0)
+    {
         close(p[0]);
-        for (int i = 0; i < 128; i++){
-        write(p[1], "ABCD", 4);
-        for (int j = 0; j < 10000000; j++) 
-            asm("nop");
+        for (int i = 0; i < 1024; ++i)
+        {
+            write(p[1], "A", 1);
+            for (int j = 0; j < 100000; j++)
+                asm("nop");
         }
         close(p[1]);
-     } else {
+    }
+    else
+    {
         close(p[1]);
-        char buf[512];
+        char buf[1024];
         int n;
-        n = read(p[0], buf, sizeof buf);
-        while (n > 0) {
-            n = read(p[0], buf, sizeof buf);
+        n = read(p[0], buf, 1);
+        while (n > 0)
+        {
+            n = read(p[0], buf, 1);
+            
         }
         close(p[0]);
-        wait(); 
+        wait();
+    }
 }
-}
-int main() {
-
+int main()
+{
+    int total_childs = 0;
+    int ncpu_bounds = 4;
+    int nio_bounds = 3;
     printf(1, "Scheduler test starting...\n");
-    int pid = fork();
-    if (pid == 0){
-        printf(1, "Creating %d cpu bound processes\n", 3);
-        for (int i = 0; i < 3; i++) {
-            int pid = fork();
-            if (pid == 0) {
-                cpu_bound();
-                exit();
-            }else
-                wait();
-        }
-        printf(1, "Creating %d io bound processes in total\n", 4);
-        for (int i = 0; i < 2; i++) {
-            int pid = fork();
-            if (pid == 0) {
-                io_bound();
-                exit();
-            }
-            else
-                wait();
+    printf(1, "Creating %d cpu bound processes\n", ncpu_bounds);
+    for (int i = 0; i < ncpu_bounds; ++i)
+    {
+        total_childs++;
+        int pid = fork();
+        if (pid == 0)
+        {
+            cpu_bound();
+            exit();
         }
     }
-    wait();
+    printf(1, "Creating %d io bound processes\n", 2 * nio_bounds);
+    for (int i = 0; i < nio_bounds; ++i)
+    {
+        total_childs++;
+        int pid = fork();
+        if (pid == 0)
+        {
+            io_bound();
+            exit();
+        }
+    }
+    for (int i = 0; i < total_childs; ++i)
+    {
+        wait();
+    }
     printf(1, "Scheduler test completed.\n");
 
     exit();
