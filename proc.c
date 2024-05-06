@@ -25,7 +25,12 @@ void reprioritize(struct proc *p)
 {
   int runtime = get_total_duration(p->run_time);
   int sleeptime = get_total_duration(p->sleep_time);
-  if (sleeptime > 1)
+  if (runtime == 0)
+  {
+    p->type = INTERACTIVE;
+    return;
+  }
+  if (sleeptime > runtime)
   {
     p->type = INTERACTIVE;
   }
@@ -33,6 +38,7 @@ void reprioritize(struct proc *p)
   {
     p->type = BATCH;
   }
+  
   return;
 }
 void set_runnable(struct proc *p)
@@ -111,7 +117,7 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   release(&ptable.lock);
-  p->type = BATCH; // just using this as the default for now
+  p->type = INTERACTIVE; // just using this as the default for now to make sure new processes get selected by the scheduler
   p->timer = 0;
   p->sleep_time = (time_buffer *)kalloc();
   p->run_time = (time_buffer *)kalloc();
@@ -385,6 +391,7 @@ void scheduler(void)
       {
         c->proc = p;
         switchuvm(p);
+        found = 1; // Mark that we found an interactive process
         p->state = RUNNING;
         p->timer = ticks;
         swtch(&(c->scheduler), p->context);
@@ -392,10 +399,10 @@ void scheduler(void)
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
-        add_record(p->run_time, ticks - p->timer);
+        if (ticks != p->timer)
+          add_record(p->run_time, ticks - p->timer);
         c->proc = 0;
-        found = 1; // Mark that we found an interactive process
-        break;
+        
       }
     }
     if (!found)
@@ -412,7 +419,8 @@ void scheduler(void)
           p->timer = ticks;
           swtch(&(c->scheduler), p->context);
           switchkvm();
-          add_record(p->run_time, ticks - p->timer);
+          if (ticks != p->timer)
+            add_record(p->run_time, ticks - p->timer);
           // Process is done running for now.
           // It should have changed its p->state before coming back.
 
@@ -512,13 +520,14 @@ void sleep(void *chan, struct spinlock *lk)
 
   // Tidy up.
   p->chan = 0;
-
   // Reacquire original lock.
   if (lk != &ptable.lock)
   { // DOC: sleeplock2
     release(&ptable.lock);
     acquire(lk);
   }
+  if (ticks != p->timer)
+    add_record(p->sleep_time, ticks - p->timer);
 }
 
 // PAGEBREAK!
@@ -532,7 +541,8 @@ wakeup1(void *chan)
   for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if (p->state == SLEEPING && p->chan == chan)
     {
-      add_record(p->sleep_time, ticks - p->timer);
+      if (ticks != p->timer)
+        add_record(p->sleep_time, ticks - p->timer);
       set_runnable(p);
     }
 }
@@ -582,9 +592,13 @@ void procdump(void)
       [RUNNABLE] "runble",
       [RUNNING] "run   ",
       [ZOMBIE] "zombie"};
+  static char *types[] = {
+      [INTERACTIVE] "interactive",
+      [BATCH] "batch"};
   int i;
   struct proc *p;
   char *state;
+  char *type;
   uint pc[10];
 
   for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
@@ -595,7 +609,11 @@ void procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+    if (p->type >= 0 && p->type < NELEM(types) && types[p->type])
+      type = types[p->type];
+    else
+      type = "???";
+    cprintf("%d %s %s %s", p->pid, state, type, p->name);
     if (p->state == SLEEPING)
     {
       getcallerpcs((uint *)p->context->ebp + 2, pc);

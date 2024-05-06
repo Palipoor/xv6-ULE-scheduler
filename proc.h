@@ -67,7 +67,6 @@ struct proc {
 
 typedef
 struct time_buffer{
-int update_times[BUFFER_SIZE];
 int durations[BUFFER_SIZE];
 int head, tail, size;
 }time_buffer;
