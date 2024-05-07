@@ -52,16 +52,17 @@ void cpu_bound(int seed)
         }
         break;
     case 2:
-        for (int k = 1; k < kilo; k++)
+        for (int k = 1; k < mil; k++)
         {
             int p = is_prime(k);
-            
+            for(int j = 0; j < kilo; j++);
         }
         break;
     case 3:
         for (int k = 0; k < hundred; k++)
         {
             int r = recursive_func(k);
+            for(int j = 0; j < kilo; j++);
         }
         break;
     }
@@ -70,7 +71,6 @@ void cpu_bound(int seed)
 
 int main()
 {
-
     int nprocs = 10;
     printf(1, "Scheduler test 1 starting...\n");
     for (int i = 0; i < nprocs; i++)
@@ -79,7 +79,6 @@ int main()
         if (pid == 0)
         {
             cpu_bound(i);
-            sleep(5);
             exit();
         }
     }

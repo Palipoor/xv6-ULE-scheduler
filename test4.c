@@ -4,15 +4,15 @@
 
 void long_batch(){
     int c = 0;
-    for (int i = 0; i < 10000000000; i++){
+    for (int i = 0; i < 200000000; i++){
         c = c + (i % 4);
     }
 }
 
-void interaceive(){
+void interactive(t){
     int c = 0;
     for (int i = 0; i < 10; i++){
-        sleep(1);
+        sleep(t);
         c = c + (i % 4);
     }
 }
@@ -24,15 +24,15 @@ int main(){
         long_batch();
         exit();
     }else{
-        for (int i = 0; i < num_interactive; i++){
+        for (int i = num_interactive + 1; i > 0; i--){
             pid = fork();
             if (pid == 0){
-                interaceive();
+                interactive(i * 50);
                 exit();
             }
         }
     }
-    for (int i = 0; i < num_interactive + 1; i++){
+    for (int i = num_interactive + 1; i > 0; i--){
         wait();
     }
     printf(1, "Scheduler test 4 completed.\n");

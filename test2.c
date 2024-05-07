@@ -23,7 +23,7 @@ void io_bound(int seed){
     switch (x)
     {
     case 0:
-        for (int k = 0; k < mil; k++)
+        for (int k = 0; k < kilo; k++)
         {
             for (int j = 0; j < hundred; j++);
             sleep(10);
@@ -49,9 +49,9 @@ void io_bound(int seed){
         }
         break;
     case 3:
-        for (int k = 0; k < hundred; k++)
+        for (int k = 0; k < kilo; k++)
         {
-            is_prime(2 * k);
+            is_prime(k);
             sleep(10);
         }
         break;
@@ -68,7 +68,6 @@ int main()
         if (pid == 0)
         {
             io_bound(i);
-            sleep(5);
             exit();
         }
     }

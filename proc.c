@@ -306,11 +306,7 @@ void exit(void)
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   curproc->end = ticks;
-  cprintf("Process %d was created at %d\n", curproc->pid, curproc->start);
-  cprintf("Process %d was alive for %d ticks\n", curproc->pid, curproc->end - curproc->start);
-  cprintf("Process type at the end: %s\n", curproc->type == INTERACTIVE ? "INTERACTIVE" : "BATCH");
-  cprintf("Total run time: %d\n", curproc->total_run_time);
-  cprintf("Total sleep time: %d\n", curproc->total_sleep_time);
+  cprintf("%d, %d, %d, %d, %d, %s\n", curproc->pid, curproc->start, curproc->end, curproc->total_run_time, curproc->total_sleep_time, curproc->type == INTERACTIVE ? "INTERACTIVE" : "BATCH");
   sched();
   panic("zombie exit");
 }
